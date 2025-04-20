@@ -164,7 +164,45 @@ if 'DOB' in filtered_df.columns:
     st.plotly_chart(fig_age, use_container_width=True)
 
 # === REGISTRATION FACILITY CHARTS ===
+# === REGISTRATION FACILITY CHARTS with Top 70% Filter ===
 if selected_district != "All" and 'Registration_Facility' in filtered_df.columns:
+    st.subheader("🏥 Registration Facility Stats (Top 70%)")
+
+    # -- Top 70% by Visits
+    facility_visits = filtered_df['Registration_Facility'].value_counts().reset_index()
+    facility_visits.columns = ['Registration Facility', 'Visits']
+    facility_visits['Cumulative'] = facility_visits['Visits'].cumsum()
+    total_visits = facility_visits['Visits'].sum()
+    facility_visits['Cumulative_Perc'] = facility_visits['Cumulative'] / total_visits
+
+    top_visits_df = facility_visits[facility_visits['Cumulative_Perc'] <= 0.7]
+
+    fig_facility = px.bar(
+        top_visits_df, x='Registration Facility', y='Visits',
+        title="Top Registration Facilities by Visit Count (Top 70%)",
+        text_auto=True, color='Registration Facility',
+        color_discrete_sequence=px.colors.qualitative.Prism
+    )
+    fig_facility.update_layout(showlegend=False, xaxis_tickangle=-45)
+    st.plotly_chart(fig_facility, use_container_width=True)
+
+    # -- Top 70% by Amount
+    facility_amount = filtered_df.groupby('Registration_Facility')['Amount'].sum().reset_index()
+    facility_amount = facility_amount.sort_values('Amount', ascending=False)
+    facility_amount['Cumulative'] = facility_amount['Amount'].cumsum()
+    total_amt = facility_amount['Amount'].sum()
+    facility_amount['Cumulative_Perc'] = facility_amount['Cumulative'] / total_amt
+
+    top_amt_df = facility_amount[facility_amount['Cumulative_Perc'] <= 0.7]
+
+    fig_facility_amt = px.bar(
+        top_amt_df, x='Registration_Facility', y='Amount',
+        title="Top Registration Facilities by Total Amount (Top 70%)",
+        text_auto=True, color='Registration_Facility',
+        color_discrete_sequence=px.colors.qualitative.Alphabet
+    )
+    fig_facility_amt.update_layout(showlegend=False, xaxis_tickangle=-45)
+    st.plotly_chart(fig_facility_amt, use_container_width=True)
     st.subheader("🏥 Registration Facility Stats")
 
     facility_visits = filtered_df['Registration_Facility'].value_counts().reset_index()
