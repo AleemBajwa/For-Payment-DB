@@ -16,7 +16,6 @@ for col in df.select_dtypes(include='object').columns:
 
 df['District'] = df['District'].str.title()
 
-# Clean Amount
 df['Amount'] = (
     df['Amount']
     .astype(str)
@@ -26,7 +25,6 @@ df['Amount'] = (
 df = df[df['Amount'].str.fullmatch(r"\d+")]
 df['Amount'] = pd.to_numeric(df['Amount'])
 
-# Convert Visit_Date_Time
 if 'Visit_Date_Time' in df.columns:
     df['Visit_Date_Time'] = pd.to_datetime(df['Visit_Date_Time'], errors='coerce')
 
@@ -40,28 +38,28 @@ project_districts = [
 st.sidebar.title("📍 Filters")
 
 show_all = st.sidebar.checkbox("🔓 Show Non-Project Districts", value=False)
-if show_all:
-    district_options = sorted(df['District'].dropna().unique())
-else:
-    district_options = sorted([d for d in df['District'].unique() if d in project_districts])
-
+district_options = sorted(df['District'].dropna().unique()) if show_all else sorted([d for d in df['District'].unique() if d in project_districts])
 selected_district = st.sidebar.selectbox("Select District", ["All"] + district_options)
 
-# Date Range
+# Date range filter
 min_date = df['Visit_Date_Time'].min()
 max_date = df['Visit_Date_Time'].max()
-start_date, end_date = st.sidebar.date_input(
+date_range = st.sidebar.date_input(
     "📆 Filter by Visit Date",
-    value=[min_date, max_date],
+    value=(min_date, max_date),
     min_value=min_date,
     max_value=max_date
 )
+if isinstance(date_range, tuple) and len(date_range) == 2:
+    start_date, end_date = date_range
+else:
+    start_date, end_date = min_date, max_date
 
 # StageCode filter
-available_stages = df['StageCode'].dropna().unique().tolist()
-selected_stages = st.sidebar.multiselect("🧮 Filter by StageCode", available_stages, default=available_stages)
+stage_options = sorted(df['StageCode'].dropna().unique().tolist())
+selected_stage = st.sidebar.selectbox("🧮 Filter by StageCode", ["All"] + stage_options)
 
-# === APPLY FILTERS ===
+# === FILTERED DATA ===
 filtered_df = df.copy()
 
 if selected_district != "All":
@@ -74,7 +72,8 @@ filtered_df = filtered_df[
     (filtered_df['Visit_Date_Time'].dt.date <= end_date)
 ]
 
-filtered_df = filtered_df[filtered_df['StageCode'].isin(selected_stages)]
+if selected_stage != "All":
+    filtered_df = filtered_df[filtered_df['StageCode'] == selected_stage]
 
 # === HEADER ===
 st.markdown("""
@@ -83,7 +82,7 @@ st.markdown("""
     </div>
     """, unsafe_allow_html=True)
 
-# === SUMMARY ===
+# === SUMMARY STATS ===
 st.subheader("📈 Summary Stats")
 
 col1, col2, col3 = st.columns(3)
@@ -98,26 +97,39 @@ with col3:
 with col4:
     st.metric("💸 Total Amount", f"{filtered_df['Amount'].sum():,.0f}")
 
-# === CHARTS ===
-st.subheader("📊 Visualizations")
-
-# 1. Total by District
+# === DISTRICT-WISE CHARTS ===
 if selected_district == "All":
-    st.markdown("#### 💰 Total Payments by District")
-    df_district_amount = filtered_df.groupby('District')['Amount'].sum().reset_index()
-    df_district_amount['Amount'] = df_district_amount['Amount'].round(0)
-    fig_dist = px.bar(
-        df_district_amount, 
-        x='District', 
-        y='Amount', 
-        title="Total Amount by District", 
-        labels={"Amount": "Total Amount"},
-        text_auto='.2s'
-    )
-    st.plotly_chart(fig_dist, use_container_width=True)
+    st.subheader("📊 District-wise Overview")
+    col1, col2 = st.columns(2)
 
-# 2. StageCode bar chart
-st.markdown("#### 🧮 Visits by StageCode")
+    with col1:
+        df_district_amount = filtered_df.groupby('District')['Amount'].sum().reset_index()
+        df_district_amount['Amount'] = df_district_amount['Amount'].round(0)
+        fig_amount = px.bar(
+            df_district_amount,
+            x='District',
+            y='Amount',
+            title="💸 Total Amount by District",
+            labels={"Amount": "Total Amount"},
+            text_auto='.2s'
+        )
+        st.plotly_chart(fig_amount, use_container_width=True)
+
+    with col2:
+        df_mothers = filtered_df.groupby('District')['MotherCNIC'].nunique().reset_index()
+        df_mothers.columns = ['District', 'Unique Mothers']
+        fig_mothers = px.bar(
+            df_mothers,
+            x='District',
+            y='Unique Mothers',
+            title="👩‍🍼 Total PLWs by District",
+            labels={"Unique Mothers": "PLWs"},
+            text_auto='.2s'
+        )
+        st.plotly_chart(fig_mothers, use_container_width=True)
+
+# === STAGECODE CHART ===
+st.subheader("🧮 Visits by StageCode")
 stage_chart = (
     filtered_df.groupby('StageCode')
     .size()
@@ -125,17 +137,17 @@ stage_chart = (
     .sort_values("Visit Count", ascending=False)
 )
 fig_stage = px.bar(
-    stage_chart, 
-    x='StageCode', 
-    y='Visit Count', 
+    stage_chart,
+    x='StageCode',
+    y='Visit Count',
     title="Visits by StageCode",
     text_auto='.2s'
 )
 st.plotly_chart(fig_stage, use_container_width=True)
 
-# 3. Visit Trend
+# === TREND CHART ===
 if 'Visit_Date_Time' in filtered_df.columns:
-    st.markdown("#### 📈 Visit Trend Over Time")
+    st.subheader("📈 Visit Trend Over Time")
 
     trend_group = st.radio("Group Trend By", ["Daily", "Monthly", "Yearly"], horizontal=True)
 
@@ -154,24 +166,22 @@ if 'Visit_Date_Time' in filtered_df.columns:
     )
 
     fig_trend = px.line(
-        trend_df, 
-        x='Trend', 
-        y='Visits', 
+        trend_df,
+        x='Trend',
+        y='Visits',
         title=f"Visits Over Time ({trend_group})",
         markers=True
     )
     st.plotly_chart(fig_trend, use_container_width=True)
 
-# 4. Age Histogram from DOB
+# === AGE HISTOGRAM FROM DOB ===
 if 'DOB' in filtered_df.columns:
-    st.markdown("#### 👶 Age Distribution Histogram")
+    st.subheader("👶 Age Distribution Histogram")
 
     dob_series = pd.to_datetime(filtered_df['DOB'], errors='coerce')
     today = pd.to_datetime("today")
 
     ages = ((today - dob_series).dt.days // 365).dropna().astype(int)
-
-    # Optional: add Age to dataframe
     filtered_df['Age'] = ages
 
     fig_age_hist = px.histogram(
