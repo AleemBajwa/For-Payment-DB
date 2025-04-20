@@ -27,18 +27,32 @@ df['Amount'] = (
 df = df[df['Amount'].str.fullmatch(r"\d+")]
 df['Amount'] = pd.to_numeric(df['Amount'])
 
-# Convert date column if present
+# Convert date
 if 'Visit_Date_Time' in df.columns:
     df['Visit_Date_Time'] = pd.to_datetime(df['Visit_Date_Time'], errors='coerce')
 
-# === FILTERS ===
+# === PROJECT DISTRICTS ===
+project_districts = [
+    "Bahawalnagar", "Bahawalpur", "Bhakkar", "Dera Ghazi Khan", "Khushab",
+    "Layyah", "Lodhran", "Mianwali", "Muzaffargarh", "Rahim Yar Khan", "Rajanpur"
+]
+
+# === SIDEBAR FILTER ===
 st.sidebar.title("📍 Filter")
-districts = sorted(df['District'].dropna().unique())
-selected_district = st.sidebar.selectbox("Select District (optional)", ["All"] + districts)
+
+# Toggle: Show non-project districts?
+show_all = st.sidebar.checkbox("🔓 Show Non-Project Districts", value=False)
+
+if show_all:
+    district_options = sorted(df['District'].dropna().unique())
+else:
+    district_options = sorted([d for d in df['District'].unique() if d in project_districts])
+
+selected_district = st.sidebar.selectbox("Select District", ["All"] + district_options)
 
 # === FILTERED DATAFRAME ===
 if selected_district == "All":
-    filtered_df = df.copy()
+    filtered_df = df[df['District'].isin(district_options)]
 else:
     filtered_df = df[df['District'] == selected_district]
 
@@ -73,14 +87,14 @@ with col5:
 # === VISUALS ===
 st.subheader("📊 Visualizations")
 
-# 1. District-wise total payments (only in global view)
+# 1. District-wise totals (only when viewing all)
 if selected_district == "All":
     st.markdown("#### 💰 Total Payments by District")
-    df_district_amount = df.groupby('District')['Amount'].sum().reset_index()
+    df_district_amount = filtered_df.groupby('District')['Amount'].sum().reset_index()
     fig_dist = px.bar(df_district_amount, x='District', y='Amount', title="Total Amount by District")
     st.plotly_chart(fig_dist, use_container_width=True)
 
-# 2. StageCode chart
+# 2. StageCode bar chart
 st.markdown("#### 🧮 Visits by StageCode")
 stage_chart = (
     filtered_df.groupby('StageCode')
@@ -102,7 +116,7 @@ if 'Visit_Date_Time' in filtered_df.columns:
     fig_trend = px.line(trend, x='Visit_Date_Time', y='Visits', title="Visits Over Time")
     st.plotly_chart(fig_trend, use_container_width=True)
 
-# === DATA TABLE & DOWNLOAD ===
+# === TABLE & DOWNLOAD ===
 st.subheader("📄 Data Table")
 st.dataframe(filtered_df)
 
