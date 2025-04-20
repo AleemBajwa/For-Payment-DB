@@ -34,6 +34,17 @@ def load_data():
 with st.spinner("Loading data..."):
     df = load_data()
 
+# === DEBUGGING PREVIEW ===
+st.subheader("🧪 Raw Data Debug")
+st.write("Sample Data:", df.head(10))
+st.write("Total Rows Loaded:", len(df))
+st.write("Unique Districts:", df['District'].unique())
+st.write("Amount Sample:", df['Amount'].head(5))
+if 'Visit_Date_Time' in df.columns:
+    st.write("Visit_Date_Time Sample:", df['Visit_Date_Time'].dropna().head(5))
+else:
+    st.error("❌ Visit_Date_Time column missing!")
+
 # === PROJECT DISTRICTS ===
 project_districts = [
     "Bahawalnagar", "Bahawalpur", "Bhakkar", "Dera Ghazi Khan", "Khushab",
@@ -47,8 +58,8 @@ show_all = st.sidebar.checkbox("🔓 Show Non-Project Districts", value=False)
 district_options = sorted(df['District'].dropna().unique()) if show_all else sorted([d for d in df['District'].unique() if d in project_districts])
 selected_district = st.sidebar.selectbox("Select District", ["All"] + district_options)
 
-# === Date Handling ===
-valid_dates = df['Visit_Date_Time'].dropna()
+# === Safe Date Filter ===
+valid_dates = df['Visit_Date_Time'].dropna() if 'Visit_Date_Time' in df else pd.Series([], dtype='datetime64[ns]')
 has_valid_dates = not valid_dates.empty
 
 if has_valid_dates:
@@ -104,7 +115,7 @@ with col3:
 with col4:
     st.metric("💸 Total Amount", f"{filtered_df['Amount'].sum():,.0f}")
 
-# === DISTRICT-WISE CHARTS ===
+# === DISTRICT CHARTS ===
 if selected_district == "All":
     st.subheader("📊 District-wise Overview")
 
@@ -119,7 +130,7 @@ if selected_district == "All":
     fig_mothers.update_layout(showlegend=False, xaxis_tickangle=-45)
     st.plotly_chart(fig_mothers, use_container_width=True)
 
-# === STAGECODE CHART ===
+# === STAGE CHART ===
 st.subheader("🧮 Visits by StageCode")
 stage_chart = (
     filtered_df.groupby('StageCode')
