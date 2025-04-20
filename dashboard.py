@@ -162,46 +162,51 @@ if 'DOB' in filtered_df.columns:
     fig_age.update_layout(showlegend=False)
     st.plotly_chart(fig_age, use_container_width=True)
 
-# === REGISTRATION FACILITY CHARTS — TOP 70% ONLY ===
+# === REGISTRATION FACILITY CHARTS — TOP 10 ===
 if selected_district != "All" and 'Registration_Facility' in filtered_df.columns:
     st.subheader("🏥 Registration Facility Stats")
 
-    # VISITS - top 70%
+    # Top 10 by VISITS
     facility_visits = filtered_df['Registration_Facility'].value_counts().reset_index()
     facility_visits.columns = ['Registration Facility', 'Visits']
-    facility_visits['Cumulative %'] = facility_visits['Visits'].cumsum() / facility_visits['Visits'].sum()
-    top_facilities_visits = facility_visits[facility_visits['Cumulative %'] <= 0.7]
+    top_facilities_visits = facility_visits.head(10)
 
     fig_facility = px.bar(
         top_facilities_visits,
         x='Visits',
         y='Registration Facility',
         orientation='h',
-        title="Top Facilities (70%) by Visits",
+        title="Top 10 Facilities by Visits",
         text='Visits',
         color='Registration Facility',
         color_discrete_sequence=px.colors.qualitative.Prism
     )
-    fig_facility.update_layout(showlegend=False, yaxis=dict(tickmode='linear', tickfont=dict(size=11)))
+    fig_facility.update_layout(
+        showlegend=False,
+        yaxis=dict(tickmode='linear', tickfont=dict(size=11)),
+        margin=dict(l=150, r=20, t=50, b=40)
+    )
     st.plotly_chart(fig_facility, use_container_width=True)
 
-    # AMOUNT - top 70%
+    # Top 10 by AMOUNT
     facility_amount = filtered_df.groupby('Registration_Facility')['Amount'].sum().reset_index()
-    facility_amount = facility_amount.sort_values('Amount', ascending=False)
-    facility_amount['Cumulative %'] = facility_amount['Amount'].cumsum() / facility_amount['Amount'].sum()
-    top_facilities_amount = facility_amount[facility_amount['Cumulative %'] <= 0.7]
+    facility_amount = facility_amount.sort_values('Amount', ascending=False).head(10)
 
     fig_facility_amt = px.bar(
-        top_facilities_amount,
+        facility_amount,
         x='Amount',
         y='Registration_Facility',
         orientation='h',
-        title="Top Facilities (70%) by Amount",
+        title="Top 10 Facilities by Amount",
         text='Amount',
         color='Registration_Facility',
         color_discrete_sequence=px.colors.qualitative.Alphabet
     )
-    fig_facility_amt.update_layout(showlegend=False, yaxis=dict(tickmode='linear', tickfont=dict(size=11)))
+    fig_facility_amt.update_layout(
+        showlegend=False,
+        yaxis=dict(tickmode='linear', tickfont=dict(size=11)),
+        margin=dict(l=150, r=20, t=50, b=40)
+    )
     st.plotly_chart(fig_facility_amt, use_container_width=True)
 
 # === DATA TABLE & DOWNLOAD ===
