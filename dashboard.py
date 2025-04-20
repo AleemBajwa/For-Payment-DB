@@ -3,9 +3,37 @@ import pandas as pd
 import plotly.express as px
 import os
 
-# === Load the Excel file ===
-data_file = "For_Payment_DB.xlsx"  # EXACT match with your uploaded file
+# === Load Excel File ===
+data_file = "For_Payment_DB.xlsx"
 df = pd.read_excel(data_file)
+
+# === Dashboard Title ===
+st.markdown("""
+    <div style="background-color:#0A5275;padding:15px;border-radius:10px">
+    <h2 style="color:white;text-align:center;">📊 District Data Dashboard</h2>
+    </div>
+    """, unsafe_allow_html=True)
+
+# === Summary Stats (Global) ===
+st.subheader("📈 Overall Summary")
+col1, col2, col3 = st.columns(3)
+col4, col5 = st.columns(2)
+
+with col1:
+    st.metric("👩‍🦰 Unique Mothers (CNIC)", df['MotherCNIC'].nunique())
+
+with col2:
+    st.metric("📋 Total Visits", len(df))
+
+with col3:
+    st.metric("🏙️ Unique Districts", df['District'].nunique())
+
+with col4:
+    st.metric("🏞️ Unique Tehsils", df['Tehsil'].nunique())
+
+with col5:
+    total_amount = df['Amount'].sum() if 'Amount' in df.columns else 0
+    st.metric("💸 Total Amount", f"{total_amount:,.0f}")
 
 # === Sidebar: Select District ===
 st.sidebar.title("📍 Filters")
@@ -15,14 +43,7 @@ selected_district = st.sidebar.selectbox("Select a District", sorted(districts))
 # === Filter Data ===
 filtered_df = df[df['District'] == selected_district]
 
-# === Page Header ===
-st.markdown("""
-    <div style="background-color:#0A5275;padding:15px;border-radius:10px">
-    <h2 style="color:white;text-align:center;">📊 District Data Dashboard</h2>
-    </div>
-    """, unsafe_allow_html=True)
-
-# === Summary ===
+# === District-Level Section ===
 st.subheader(f"📍 Statistics for `{selected_district}`")
 st.write(f"**Total Records:** {len(filtered_df)}")
 
