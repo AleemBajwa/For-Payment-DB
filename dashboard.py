@@ -5,7 +5,6 @@ from datetime import date
 
 @st.cache_data
 def load_data():
-    # ✅ Stream from your Google Sheet (published as CSV)
     url = "https://docs.google.com/spreadsheets/d/1kqKFxObhH9l6tZzdPXINDVa8HdyZC8_73idCl5R0WVQ/export?format=csv"
     df = pd.read_csv(url)
     df.dropna(how='all', inplace=True)
@@ -163,61 +162,46 @@ if 'DOB' in filtered_df.columns:
     fig_age.update_layout(showlegend=False)
     st.plotly_chart(fig_age, use_container_width=True)
 
-# === REGISTRATION FACILITY CHARTS ===
-# === REGISTRATION FACILITY CHARTS with Top 70% Filter ===
+# === REGISTRATION FACILITY CHARTS — TOP 70% ONLY ===
 if selected_district != "All" and 'Registration_Facility' in filtered_df.columns:
-    st.subheader("🏥 Registration Facility Stats (Top 70%)")
-
-    # -- Top 70% by Visits
-    facility_visits = filtered_df['Registration_Facility'].value_counts().reset_index()
-    facility_visits.columns = ['Registration Facility', 'Visits']
-    facility_visits['Cumulative'] = facility_visits['Visits'].cumsum()
-    total_visits = facility_visits['Visits'].sum()
-    facility_visits['Cumulative_Perc'] = facility_visits['Cumulative'] / total_visits
-
-    top_visits_df = facility_visits[facility_visits['Cumulative_Perc'] <= 0.7]
-
-    fig_facility = px.bar(
-        top_visits_df, x='Registration Facility', y='Visits',
-        title="Top Registration Facilities by Visit Count (Top 70%)",
-        text_auto=True, color='Registration Facility',
-        color_discrete_sequence=px.colors.qualitative.Prism
-    )
-    fig_facility.update_layout(showlegend=False, xaxis_tickangle=-45)
-    st.plotly_chart(fig_facility, use_container_width=True)
-
-    # -- Top 70% by Amount
-    facility_amount = filtered_df.groupby('Registration_Facility')['Amount'].sum().reset_index()
-    facility_amount = facility_amount.sort_values('Amount', ascending=False)
-    facility_amount['Cumulative'] = facility_amount['Amount'].cumsum()
-    total_amt = facility_amount['Amount'].sum()
-    facility_amount['Cumulative_Perc'] = facility_amount['Cumulative'] / total_amt
-
-    top_amt_df = facility_amount[facility_amount['Cumulative_Perc'] <= 0.7]
-
-    fig_facility_amt = px.bar(
-        top_amt_df, x='Registration_Facility', y='Amount',
-        title="Top Registration Facilities by Total Amount (Top 70%)",
-        text_auto=True, color='Registration_Facility',
-        color_discrete_sequence=px.colors.qualitative.Alphabet
-    )
-    fig_facility_amt.update_layout(showlegend=False, xaxis_tickangle=-45)
-    st.plotly_chart(fig_facility_amt, use_container_width=True)
     st.subheader("🏥 Registration Facility Stats")
 
+    # VISITS - top 70%
     facility_visits = filtered_df['Registration_Facility'].value_counts().reset_index()
     facility_visits.columns = ['Registration Facility', 'Visits']
-    fig_facility = px.bar(facility_visits, x='Registration Facility', y='Visits',
-                          title="Total Visits by Registration Facility", text_auto=True,
-                          color='Registration Facility', color_discrete_sequence=px.colors.qualitative.Prism)
-    fig_facility.update_layout(showlegend=False, xaxis_tickangle=-45)
+    facility_visits['Cumulative %'] = facility_visits['Visits'].cumsum() / facility_visits['Visits'].sum()
+    top_facilities_visits = facility_visits[facility_visits['Cumulative %'] <= 0.7]
+
+    fig_facility = px.bar(
+        top_facilities_visits,
+        x='Visits',
+        y='Registration Facility',
+        orientation='h',
+        title="Top Facilities (70%) by Visits",
+        text='Visits',
+        color='Registration Facility',
+        color_discrete_sequence=px.colors.qualitative.Prism
+    )
+    fig_facility.update_layout(showlegend=False, yaxis=dict(tickmode='linear', tickfont=dict(size=11)))
     st.plotly_chart(fig_facility, use_container_width=True)
 
+    # AMOUNT - top 70%
     facility_amount = filtered_df.groupby('Registration_Facility')['Amount'].sum().reset_index()
-    fig_facility_amt = px.bar(facility_amount, x='Registration_Facility', y='Amount',
-                              title="Total Amount by Registration Facility", text_auto=True,
-                              color='Registration_Facility', color_discrete_sequence=px.colors.qualitative.Alphabet)
-    fig_facility_amt.update_layout(showlegend=False, xaxis_tickangle=-45)
+    facility_amount = facility_amount.sort_values('Amount', ascending=False)
+    facility_amount['Cumulative %'] = facility_amount['Amount'].cumsum() / facility_amount['Amount'].sum()
+    top_facilities_amount = facility_amount[facility_amount['Cumulative %'] <= 0.7]
+
+    fig_facility_amt = px.bar(
+        top_facilities_amount,
+        x='Amount',
+        y='Registration_Facility',
+        orientation='h',
+        title="Top Facilities (70%) by Amount",
+        text='Amount',
+        color='Registration_Facility',
+        color_discrete_sequence=px.colors.qualitative.Alphabet
+    )
+    fig_facility_amt.update_layout(showlegend=False, yaxis=dict(tickmode='linear', tickfont=dict(size=11)))
     st.plotly_chart(fig_facility_amt, use_container_width=True)
 
 # === DATA TABLE & DOWNLOAD ===
