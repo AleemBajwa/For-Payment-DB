@@ -41,7 +41,6 @@ show_all = st.sidebar.checkbox("🔓 Show Non-Project Districts", value=False)
 district_options = sorted(df['District'].dropna().unique()) if show_all else sorted([d for d in df['District'].unique() if d in project_districts])
 selected_district = st.sidebar.selectbox("Select District", ["All"] + district_options)
 
-# Date range filter with clear
 min_date = df['Visit_Date_Time'].min()
 max_date = df['Visit_Date_Time'].max()
 date_range = st.sidebar.date_input(
@@ -55,7 +54,6 @@ if isinstance(date_range, tuple) and len(date_range) == 2:
 else:
     start_date, end_date = min_date, max_date
 
-# StageCode filter dropdown
 stage_options = sorted(df['StageCode'].dropna().unique().tolist())
 selected_stage = st.sidebar.selectbox("🧮 Filter by StageCode", ["All"] + stage_options)
 
@@ -100,36 +98,47 @@ with col4:
 # === DISTRICT-WISE BAR CHARTS ===
 if selected_district == "All":
     st.subheader("📊 District-wise Overview")
-    col1, col2 = st.columns(2)
 
-    with col1:
-        df_district_amount = filtered_df.groupby('District')['Amount'].sum().reset_index()
-        fig_amount = px.bar(
-            df_district_amount,
-            x='District',
-            y='Amount',
-            title="💸 Total Amount by District",
-            labels={"Amount": "Total Amount"},
-            text_auto=True,
-            color='District'
-        )
-        st.plotly_chart(fig_amount, use_container_width=True)
+    # 💸 Total Amount by District
+    df_district_amount = filtered_df.groupby('District')['Amount'].sum().reset_index()
+    fig_amount = px.bar(
+        df_district_amount,
+        x='District',
+        y='Amount',
+        title="💸 Total Amount by District",
+        text_auto=True,
+        color_discrete_sequence=px.colors.qualitative.Set2
+    )
+    fig_amount.update_layout(
+        showlegend=False,
+        xaxis_title="",
+        yaxis_title="Total Amount",
+        margin=dict(l=20, r=20, t=50, b=100),
+        xaxis_tickangle=-45
+    )
+    st.plotly_chart(fig_amount, use_container_width=True)
 
-    with col2:
-        df_mothers = filtered_df.groupby('District')['MotherCNIC'].nunique().reset_index()
-        df_mothers.columns = ['District', 'Unique Mothers']
-        fig_mothers = px.bar(
-            df_mothers,
-            x='District',
-            y='Unique Mothers',
-            title="👩‍🍼 Total PLWs by District",
-            labels={"Unique Mothers": "PLWs"},
-            text_auto=True,
-            color='District'
-        )
-        st.plotly_chart(fig_mothers, use_container_width=True)
+    # 👩‍🍼 Total PLWs by District
+    df_mothers = filtered_df.groupby('District')['MotherCNIC'].nunique().reset_index()
+    df_mothers.columns = ['District', 'Unique Mothers']
+    fig_mothers = px.bar(
+        df_mothers,
+        x='District',
+        y='Unique Mothers',
+        title="👩‍🍼 Total PLWs by District",
+        text_auto=True,
+        color_discrete_sequence=px.colors.qualitative.Set3
+    )
+    fig_mothers.update_layout(
+        showlegend=False,
+        xaxis_title="",
+        yaxis_title="PLWs",
+        margin=dict(l=20, r=20, t=50, b=100),
+        xaxis_tickangle=-45
+    )
+    st.plotly_chart(fig_mothers, use_container_width=True)
 
-# === STAGECODE BAR CHART ===
+# === STAGECODE CHART ===
 st.subheader("🧮 Visits by StageCode")
 stage_chart = (
     filtered_df.groupby('StageCode')
@@ -143,8 +152,10 @@ fig_stage = px.bar(
     y='Visit Count',
     title="Visits by StageCode",
     text_auto=True,
-    color='StageCode'
+    color='StageCode',
+    color_discrete_sequence=px.colors.qualitative.Set1
 )
+fig_stage.update_layout(showlegend=False)
 st.plotly_chart(fig_stage, use_container_width=True)
 
 # === VISIT TREND CHART ===
@@ -212,8 +223,10 @@ if 'DOB' in filtered_df.columns:
         title="Age Group Distribution",
         labels={'Count': 'Number of Records'},
         color='Age Group',
-        text_auto=True
+        text_auto=True,
+        color_discrete_sequence=px.colors.qualitative.Pastel
     )
+    fig_age_group.update_layout(showlegend=False)
     st.plotly_chart(fig_age_group, use_container_width=True)
 
 # === DATA TABLE & DOWNLOAD ===
