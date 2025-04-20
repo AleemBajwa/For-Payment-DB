@@ -1,32 +1,38 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from pathlib import Path
 
-# === Load data from Google Sheets ===
-csv_url = "https://docs.google.com/spreadsheets/d/1Y3EITLOqTCHQkkaOTB7BJb2qIxBaA-mWqLlNs7JXtdA/export?format=csv"
-df = pd.read_csv(csv_url)
+# === Cached Data Loader ===
+@st.cache_data
+def load_data():
+    df = pd.read_csv("payment_data.csv")
+    df.dropna(how='all', inplace=True)
+    df.columns = df.columns.str.strip()
+    df = df[df['Sr'].astype(str).str.lower() != 'sr']
 
-# === CLEANING SECTION ===
-df.dropna(how='all', inplace=True)
-df.columns = df.columns.str.strip()
-df = df[df['Sr'].astype(str).str.lower() != 'sr']
+    for col in df.select_dtypes(include='object').columns:
+        df[col] = df[col].str.strip()
 
-for col in df.select_dtypes(include='object').columns:
-    df[col] = df[col].str.strip()
+    df['District'] = df['District'].str.title()
 
-df['District'] = df['District'].str.title()
+    df['Amount'] = (
+        df['Amount']
+        .astype(str)
+        .str.replace(",", "", regex=False)
+        .str.replace(" ", "")
+    )
+    df = df[df['Amount'].str.fullmatch(r"\d+")]
+    df['Amount'] = pd.to_numeric(df['Amount'])
 
-df['Amount'] = (
-    df['Amount']
-    .astype(str)
-    .str.replace(",", "", regex=False)
-    .str.replace(" ", "")
-)
-df = df[df['Amount'].str.fullmatch(r"\d+")]
-df['Amount'] = pd.to_numeric(df['Amount'])
+    if 'Visit_Date_Time' in df.columns:
+        df['Visit_Date_Time'] = pd.to_datetime(df['Visit_Date_Time'], errors='coerce')
 
-if 'Visit_Date_Time' in df.columns:
-    df['Visit_Date_Time'] = pd.to_datetime(df['Visit_Date_Time'], errors='coerce')
+    return df
+
+# === Load Data ===
+with st.spinner("Loading data..."):
+    df = load_data()
 
 # === PROJECT DISTRICTS ===
 project_districts = [
@@ -49,10 +55,7 @@ date_range = st.sidebar.date_input(
     min_value=min_date,
     max_value=max_date
 )
-if isinstance(date_range, tuple) and len(date_range) == 2:
-    start_date, end_date = date_range
-else:
-    start_date, end_date = min_date, max_date
+start_date, end_date = (date_range if isinstance(date_range, tuple) else (min_date, max_date))
 
 stage_options = sorted(df['StageCode'].dropna().unique().tolist())
 selected_stage = st.sidebar.selectbox("🧮 Filter by StageCode", ["All"] + stage_options)
@@ -99,7 +102,6 @@ with col4:
 if selected_district == "All":
     st.subheader("📊 District-wise Overview")
 
-    # 💸 Total Amount by District
     df_district_amount = filtered_df.groupby('District')['Amount'].sum().reset_index()
     fig_amount = px.bar(
         df_district_amount,
@@ -108,16 +110,9 @@ if selected_district == "All":
         title="💸 Total Amount by District",
         text_auto=True
     )
-    fig_amount.update_layout(
-        showlegend=False,
-        xaxis_title="",
-        yaxis_title="Total Amount",
-        margin=dict(l=20, r=20, t=50, b=100),
-        xaxis_tickangle=-45
-    )
+    fig_amount.update_layout(showlegend=False, xaxis_tickangle=-45)
     st.plotly_chart(fig_amount, use_container_width=True)
 
-    # 👩‍🍼 Total PLWs by District
     df_mothers = filtered_df.groupby('District')['MotherCNIC'].nunique().reset_index()
     df_mothers.columns = ['District', 'Unique Mothers']
     fig_mothers = px.bar(
@@ -127,16 +122,10 @@ if selected_district == "All":
         title="👩‍🍼 Total PLWs by District",
         text_auto=True
     )
-    fig_mothers.update_layout(
-        showlegend=False,
-        xaxis_title="",
-        yaxis_title="PLWs",
-        margin=dict(l=20, r=20, t=50, b=100),
-        xaxis_tickangle=-45
-    )
+    fig_mothers.update_layout(showlegend=False, xaxis_tickangle=-45)
     st.plotly_chart(fig_mothers, use_container_width=True)
 
-# === STAGECODE BAR CHART ===
+# === STAGECODE CHART ===
 st.subheader("🧮 Visits by StageCode")
 stage_chart = (
     filtered_df.groupby('StageCode')
@@ -144,17 +133,11 @@ stage_chart = (
     .reset_index(name="Visit Count")
     .sort_values("Visit Count", ascending=False)
 )
-fig_stage = px.bar(
-    stage_chart,
-    x='StageCode',
-    y='Visit Count',
-    title="Visits by StageCode",
-    text_auto=True
-)
+fig_stage = px.bar(stage_chart, x='StageCode', y='Visit Count', title="Visits by StageCode", text_auto=True)
 fig_stage.update_layout(showlegend=False)
 st.plotly_chart(fig_stage, use_container_width=True)
 
-# === VISIT TREND CHART ===
+# === VISIT TREND ===
 if 'Visit_Date_Time' in filtered_df.columns:
     st.subheader("📈 Visit Trend Over Time")
 
@@ -167,26 +150,13 @@ if 'Visit_Date_Time' in filtered_df.columns:
     else:
         filtered_df['Trend'] = filtered_df['Visit_Date_Time'].dt.date
 
-    trend_df = (
-        filtered_df.groupby('Trend')
-        .size()
-        .reset_index(name="Visits")
-        .sort_values('Trend')
-    )
-
-    fig_trend = px.line(
-        trend_df,
-        x='Trend',
-        y='Visits',
-        title=f"Visits Over Time ({trend_group})",
-        markers=True
-    )
+    trend_df = filtered_df.groupby('Trend').size().reset_index(name="Visits").sort_values('Trend')
+    fig_trend = px.line(trend_df, x='Trend', y='Visits', title=f"Visits Over Time ({trend_group})", markers=True)
     st.plotly_chart(fig_trend, use_container_width=True)
 
-# === AGE GROUP DISTRIBUTION ===
+# === AGE DISTRIBUTION ===
 if 'DOB' in filtered_df.columns:
     st.subheader("👶 Age Group Distribution")
-
     dob_series = pd.to_datetime(filtered_df['DOB'], errors='coerce')
     today = pd.to_datetime("today")
     ages = ((today - dob_series).dt.days // 365).dropna().astype(int)
@@ -206,21 +176,13 @@ if 'DOB' in filtered_df.columns:
             return "50+"
 
     age_groups = ages.apply(get_age_group)
-    age_group_counts = age_groups.value_counts().reindex(["0–17", "18–25", "26–35", "36–40", "41–49", "50+"], fill_value=0).reset_index()
+    age_group_counts = age_groups.value_counts().reindex(
+        ["0–17", "18–25", "26–35", "36–40", "41–49", "50+"], fill_value=0).reset_index()
     age_group_counts.columns = ['Age Group', 'Count']
 
-    filtered_df['Age'] = ages
-    filtered_df['Age Group'] = age_groups
-
-    fig_age_group = px.bar(
-        age_group_counts,
-        x='Age Group',
-        y='Count',
-        title="Age Group Distribution",
-        text_auto=True
-    )
-    fig_age_group.update_layout(showlegend=False)
-    st.plotly_chart(fig_age_group, use_container_width=True)
+    fig_age = px.bar(age_group_counts, x='Age Group', y='Count', title="Age Group Distribution", text_auto=True)
+    fig_age.update_layout(showlegend=False)
+    st.plotly_chart(fig_age, use_container_width=True)
 
 # === DATA TABLE & DOWNLOAD ===
 st.subheader("📄 Data Table")
