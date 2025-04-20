@@ -26,12 +26,12 @@ project_districts = [
     "Layyah", "Lodhran", "Mianwali", "Muzaffargarh", "Rahim Yar Khan", "Rajanpur"
 ]
 
+# Sidebar Filters
 st.sidebar.title("📍 Filters")
 show_all = st.sidebar.checkbox("🔓 Show Non-Project Districts", value=False)
 district_options = sorted(df['District'].dropna().unique()) if show_all else sorted([d for d in df['District'].unique() if d in project_districts])
 selected_district = st.sidebar.selectbox("Select District", ["All"] + district_options)
 
-# === Clearable Date Filter ===
 clear_date_filter = st.sidebar.checkbox("🗓️ Clear Date Filter", value=False)
 valid_dates = df['Visit_Date_Time'].dropna()
 has_valid_dates = not valid_dates.empty
@@ -40,17 +40,13 @@ start_date, end_date = None, None
 if has_valid_dates and not clear_date_filter:
     min_date = valid_dates.min().date()
     max_date = valid_dates.max().date()
-    date_range = st.sidebar.date_input(
-        "Filter by Visit Date",
-        value=(min_date, max_date),
-        min_value=min_date,
-        max_value=max_date
-    )
+    date_range = st.sidebar.date_input("Filter by Visit Date", (min_date, max_date), min_value=min_date, max_value=max_date)
     start_date, end_date = date_range if isinstance(date_range, tuple) else (min_date, max_date)
 
 stage_options = sorted(df['StageCode'].dropna().unique().tolist())
 selected_stage = st.sidebar.selectbox("🧮 Filter by StageCode", ["All"] + stage_options)
 
+# Filter data
 filtered_df = df.copy()
 if selected_district != "All":
     filtered_df = filtered_df[filtered_df['District'] == selected_district]
@@ -66,14 +62,14 @@ if has_valid_dates and not clear_date_filter:
 if selected_stage != "All":
     filtered_df = filtered_df[filtered_df['StageCode'] == selected_stage]
 
-# === Header ===
+# Header
 st.markdown("""
     <div style="background-color:#0A5275;padding:15px;border-radius:10px">
     <h2 style="color:white;text-align:center;">📊 District Data Dashboard</h2>
     </div>
     """, unsafe_allow_html=True)
 
-# === Summary ===
+# Summary Metrics
 st.subheader("📈 Summary Stats")
 col1, col2, col3 = st.columns(3)
 col4, col5 = st.columns(2)
@@ -89,10 +85,10 @@ with col5:
     if 'Registration_Facility' in filtered_df.columns:
         st.metric("🏥 Unique Facilities", f"{filtered_df['Registration_Facility'].nunique():,}")
 
-# === Format helper ===
+# Formatting helper
 label_format = dict(texttemplate="%{text:,.0f}", textposition="auto")
 
-# === Charts ===
+# District Charts
 if selected_district == "All":
     st.subheader("📊 District-wise Overview")
     district_amt = filtered_df.groupby('District')['Amount'].sum().reset_index()
@@ -111,6 +107,7 @@ if selected_district == "All":
     fig2.update_layout(showlegend=False, xaxis_tickangle=90)
     st.plotly_chart(fig2, use_container_width=True)
 
+# StageCode Chart
 st.subheader("🧮 Visits by StageCode")
 stage = filtered_df.groupby('StageCode').size().reset_index(name='Count')
 fig3 = px.bar(stage, x='StageCode', y='Count', text='Count',
@@ -120,6 +117,7 @@ fig3.update_traces(**label_format)
 fig3.update_layout(showlegend=False)
 st.plotly_chart(fig3, use_container_width=True)
 
+# Visit Trend
 if 'Visit_Date_Time' in filtered_df:
     st.subheader("📈 Visit Trend Over Time")
     trend_type = st.radio("Group By", ["Daily", "Monthly", "Yearly"], horizontal=True)
@@ -133,6 +131,7 @@ if 'Visit_Date_Time' in filtered_df:
     fig4 = px.line(trend, x='Trend', y='Visits', title=f"Visits Over Time ({trend_type})", markers=True)
     st.plotly_chart(fig4, use_container_width=True)
 
+# Age Distribution
 if 'DOB' in filtered_df:
     st.subheader("👶 Age Group Distribution")
     ages = ((pd.to_datetime("today") - pd.to_datetime(filtered_df['DOB'], errors='coerce')).dt.days // 365).dropna().astype(int)
@@ -153,26 +152,27 @@ if 'DOB' in filtered_df:
     fig5.update_layout(showlegend=False)
     st.plotly_chart(fig5, use_container_width=True)
 
-if selected_district != "All" and 'Registration_Facility' in filtered_df:
-    st.subheader("🏥 Registration Facility Stats")
-    visits = filtered_df['Registration_Facility'].value_counts().reset_index().head(10)
-    visits.columns = ['Registration Facility', 'Visits']
-    fig6 = px.bar(visits, x='Visits', y='Registration Facility',
-                  orientation='h', text='Visits', title="Top 10 Facilities by Visits",
-                  color='Registration Facility', color_discrete_sequence=px.colors.qualitative.Prism)
-    fig6.update_traces(**label_format)
-    fig6.update_layout(showlegend=False, margin=dict(l=150))
-    st.plotly_chart(fig6, use_container_width=True)
+# Facility Charts – Top 10 (Always Visible)
+st.subheader("🏥 Top 10 Registration Facilities (All Data)")
+visits = df['Registration_Facility'].value_counts().reset_index().head(10)
+visits.columns = ['Registration Facility', 'Visits']
+fig6 = px.bar(visits, x='Visits', y='Registration Facility',
+              orientation='h', text='Visits', title="Top 10 Facilities by Visits",
+              color='Registration Facility', color_discrete_sequence=px.colors.qualitative.Prism)
+fig6.update_traces(**label_format)
+fig6.update_layout(showlegend=False, margin=dict(l=150))
+st.plotly_chart(fig6, use_container_width=True)
 
-    amounts = filtered_df.groupby('Registration_Facility')['Amount'].sum().reset_index()
-    amounts = amounts.sort_values('Amount', ascending=False).head(10)
-    fig7 = px.bar(amounts, x='Amount', y='Registration_Facility',
-                  orientation='h', text='Amount', title="Top 10 Facilities by Amount",
-                  color='Registration_Facility', color_discrete_sequence=px.colors.qualitative.Alphabet)
-    fig7.update_traces(texttemplate="%{text:,.0f}", textposition="auto")
-    fig7.update_layout(showlegend=False, margin=dict(l=150))
-    st.plotly_chart(fig7, use_container_width=True)
+amounts = df.groupby('Registration_Facility')['Amount'].sum().reset_index()
+amounts = amounts.sort_values('Amount', ascending=False).head(10)
+fig7 = px.bar(amounts, x='Amount', y='Registration_Facility',
+              orientation='h', text='Amount', title="Top 10 Facilities by Amount",
+              color='Registration_Facility', color_discrete_sequence=px.colors.qualitative.Alphabet)
+fig7.update_traces(texttemplate="%{text:,.0f}", textposition="auto")
+fig7.update_layout(showlegend=False, margin=dict(l=150))
+st.plotly_chart(fig7, use_container_width=True)
 
+# Data Table + Download
 if selected_district != "All":
     st.subheader("📄 Data Table")
     st.dataframe(filtered_df.head(100))
