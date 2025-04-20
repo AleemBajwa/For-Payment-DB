@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from pathlib import Path
 
 # === Cached Data Loader ===
 @st.cache_data
@@ -47,14 +46,18 @@ show_all = st.sidebar.checkbox("🔓 Show Non-Project Districts", value=False)
 district_options = sorted(df['District'].dropna().unique()) if show_all else sorted([d for d in df['District'].unique() if d in project_districts])
 selected_district = st.sidebar.selectbox("Select District", ["All"] + district_options)
 
-min_date = df['Visit_Date_Time'].min()
-max_date = df['Visit_Date_Time'].max()
+# ✅ Fix: Ensure no NaT is passed to date_input
+valid_dates = df['Visit_Date_Time'].dropna()
+min_date = valid_dates.min()
+max_date = valid_dates.max()
+
 date_range = st.sidebar.date_input(
     "📆 Filter by Visit Date",
     value=(min_date, max_date),
     min_value=min_date,
     max_value=max_date
 )
+
 start_date, end_date = (date_range if isinstance(date_range, tuple) else (min_date, max_date))
 
 stage_options = sorted(df['StageCode'].dropna().unique().tolist())
@@ -125,7 +128,7 @@ if selected_district == "All":
     fig_mothers.update_layout(showlegend=False, xaxis_tickangle=-45)
     st.plotly_chart(fig_mothers, use_container_width=True)
 
-# === STAGECODE CHART ===
+# === STAGECODE BAR CHART ===
 st.subheader("🧮 Visits by StageCode")
 stage_chart = (
     filtered_df.groupby('StageCode')
@@ -137,7 +140,7 @@ fig_stage = px.bar(stage_chart, x='StageCode', y='Visit Count', title="Visits by
 fig_stage.update_layout(showlegend=False)
 st.plotly_chart(fig_stage, use_container_width=True)
 
-# === VISIT TREND ===
+# === VISIT TREND CHART ===
 if 'Visit_Date_Time' in filtered_df.columns:
     st.subheader("📈 Visit Trend Over Time")
 
