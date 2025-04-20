@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 from datetime import date
 
-# === Cached Data Loader ===
+# === Load Data (Cached) ===
 @st.cache_data
 def load_data():
     df = pd.read_csv("payment_data.csv")
@@ -26,13 +26,13 @@ def load_data():
 with st.spinner("Loading data..."):
     df = load_data()
 
-# === PROJECT DISTRICTS ===
+# === District Filter Lists ===
 project_districts = [
     "Bahawalnagar", "Bahawalpur", "Bhakkar", "Dera Ghazi Khan", "Khushab",
     "Layyah", "Lodhran", "Mianwali", "Muzaffargarh", "Rahim Yar Khan", "Rajanpur"
 ]
 
-# === SIDEBAR FILTERS ===
+# === Sidebar Filters ===
 st.sidebar.title("📍 Filters")
 show_all = st.sidebar.checkbox("🔓 Show Non-Project Districts", value=False)
 district_options = sorted(df['District'].dropna().unique()) if show_all else sorted([d for d in df['District'].unique() if d in project_districts])
@@ -55,7 +55,7 @@ if has_valid_dates:
 stage_options = sorted(df['StageCode'].dropna().unique().tolist())
 selected_stage = st.sidebar.selectbox("🧮 Filter by StageCode", ["All"] + stage_options)
 
-# === APPLY FILTERS ===
+# === Apply Filters ===
 filtered_df = df.copy()
 if selected_district != "All":
     filtered_df = filtered_df[filtered_df['District'] == selected_district]
@@ -71,16 +71,15 @@ if has_valid_dates:
 if selected_stage != "All":
     filtered_df = filtered_df[filtered_df['StageCode'] == selected_stage]
 
-# === HEADER ===
+# === Header ===
 st.markdown("""
     <div style="background-color:#0A5275;padding:15px;border-radius:10px">
     <h2 style="color:white;text-align:center;">📊 District Data Dashboard</h2>
     </div>
     """, unsafe_allow_html=True)
 
-# === SUMMARY STATS ===
+# === Summary Stats ===
 st.subheader("📈 Summary Stats")
-
 col1, col2, col3 = st.columns(3)
 col4 = st.columns(1)[0]
 
@@ -93,7 +92,7 @@ with col3:
 with col4:
     st.metric("💸 Total Amount", f"{filtered_df['Amount'].sum():,.0f}")
 
-# === CHARTS SECTION ===
+# === District-Wise Charts (Only for All) ===
 if selected_district == "All":
     with st.spinner("Loading district charts..."):
         st.subheader("📊 District-wise Overview")
@@ -109,7 +108,7 @@ if selected_district == "All":
         fig_mothers.update_layout(showlegend=False, xaxis_tickangle=-45)
         st.plotly_chart(fig_mothers, use_container_width=True)
 
-# === STAGECODE CHART ===
+# === StageCode Chart ===
 with st.spinner("Rendering StageCode chart..."):
     st.subheader("🧮 Visits by StageCode")
     stage_chart = (
@@ -122,7 +121,7 @@ with st.spinner("Rendering StageCode chart..."):
     fig_stage.update_layout(showlegend=False)
     st.plotly_chart(fig_stage, use_container_width=True)
 
-# === VISIT TREND CHART ===
+# === Visit Trend Chart ===
 if has_valid_dates:
     with st.spinner("Loading visit trends..."):
         st.subheader("📈 Visit Trend Over Time")
@@ -139,7 +138,7 @@ if has_valid_dates:
         fig_trend = px.line(trend_df, x='Trend', y='Visits', title=f"Visits Over Time ({trend_group})", markers=True)
         st.plotly_chart(fig_trend, use_container_width=True)
 
-# === AGE DISTRIBUTION ===
+# === Age Distribution Chart ===
 if 'DOB' in filtered_df.columns:
     with st.spinner("Calculating age distribution..."):
         st.subheader("👶 Age Group Distribution")
@@ -170,21 +169,19 @@ if 'DOB' in filtered_df.columns:
         fig_age.update_layout(showlegend=False)
         st.plotly_chart(fig_age, use_container_width=True)
 
-# === DATA TABLE & DOWNLOAD ===
-st.subheader("📄 Data Table")
+# === Data Table & Download: Only if district is selected ===
+if selected_district != "All":
+    st.subheader("📄 Data Table")
+    st.dataframe(filtered_df.head(100))
 
-# Optional: Cap table size to reduce memory
-st.dataframe(filtered_df.head(100))
+    if not filtered_df.empty:
+        output_file = f"{selected_district.replace(' ', '_')}_{date.today()}.xlsx"
+        filtered_df.to_excel(output_file, index=False)
 
-# Conditional download logic
-if not filtered_df.empty:
-    output_file = f"{selected_district.replace(' ', '_') if selected_district != 'All' else 'All_Districts'}_{date.today()}.xlsx"
-    filtered_df.to_excel(output_file, index=False)
-
-    with open(output_file, "rb") as file:
-        st.download_button(
-            label="📥 Download Filtered Data",
-            data=file,
-            file_name=output_file,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        with open(output_file, "rb") as file:
+            st.download_button(
+                label="📥 Download Filtered Data",
+                data=file,
+                file_name=output_file,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
