@@ -2,30 +2,37 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# === Load data from Google Sheets (CSV view) ===
+# === Load data from Google Sheets (CSV format) ===
 csv_url = "https://docs.google.com/spreadsheets/d/1Y3EITLOqTCHQkkaOTB7BJb2qIxBaA-mWqLlNs7JXtdA/export?format=csv"
 df = pd.read_csv(csv_url)
 
 # === CLEANING BLOCK ===
 df.dropna(how='all', inplace=True)
-df.columns = df.columns.str.strip()  # Clean header names
-df = df[df['Sr'].astype(str) != 'Sr']  # Remove repeated headers in data
+df.columns = df.columns.str.strip()
+df = df[df['Sr'].astype(str) != 'Sr']
 
-# Strip whitespace in all string columns
+# Clean all object columns
 for col in df.select_dtypes(include='object').columns:
     df[col] = df[col].str.strip()
 
-# Normalize case for District and Tehsil
+# Normalize key fields
 df['District'] = df['District'].str.title()
 df['Tehsil'] = df['Tehsil'].str.title()
 
-# Convert Amount to numeric
+# === Clean and convert Amount column ===
+df['Amount'] = (
+    df['Amount']
+    .astype(str)
+    .str.replace(",", "", regex=False)
+    .str.replace(" ", "")
+    .str.extract(r'(\d+\.?\d*)')[0]  # Keep only numeric-like patterns
+)
 df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce')
 
-# Drop rows with missing key data (optional safety)
+# Drop rows missing core fields
 df = df[df['District'].notna() & df['Tehsil'].notna()]
 
-# === DASHBOARD HEADER ===
+# === DASHBOARD TITLE ===
 st.markdown("""
     <div style="background-color:#0A5275;padding:15px;border-radius:10px">
     <h2 style="color:white;text-align:center;">📊 District Data Dashboard</h2>
@@ -54,7 +61,7 @@ with col5:
     total_amount = df['Amount'].sum()
     st.metric("💸 Total Amount", f"{total_amount:,.0f}")
 
-# === FILTER SECTION ===
+# === SIDEBAR FILTER ===
 st.sidebar.title("📍 Filter by District")
 districts = sorted(df['District'].dropna().unique())
 selected_district = st.sidebar.selectbox("Select a District", districts)
@@ -79,7 +86,7 @@ with col2:
         fig2 = px.pie(df_amount, values='Amount', names='Tehsil', title='Total Amount by Tehsil')
         st.plotly_chart(fig2, use_container_width=True)
 
-# === TABLE & DOWNLOAD ===
+# === TABLE + DOWNLOAD ===
 with st.expander("📄 View Data Table"):
     st.dataframe(filtered_df)
 
