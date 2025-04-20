@@ -47,24 +47,21 @@ show_all = st.sidebar.checkbox("🔓 Show Non-Project Districts", value=False)
 district_options = sorted(df['District'].dropna().unique()) if show_all else sorted([d for d in df['District'].unique() if d in project_districts])
 selected_district = st.sidebar.selectbox("Select District", ["All"] + district_options)
 
-# === SAFE DATE FILTER HANDLING ===
+# === Date Handling ===
 valid_dates = df['Visit_Date_Time'].dropna()
-if valid_dates.empty:
-    min_date = date(2023, 1, 1)
-    max_date = date(2025, 12, 31)
-else:
+has_valid_dates = not valid_dates.empty
+
+if has_valid_dates:
     min_date = valid_dates.min().date()
     max_date = valid_dates.max().date()
+    date_range = st.sidebar.date_input(
+        "📆 Filter by Visit Date",
+        value=(min_date, max_date),
+        min_value=min_date,
+        max_value=max_date
+    )
+    start_date, end_date = date_range if isinstance(date_range, tuple) else (min_date, max_date)
 
-date_range = st.sidebar.date_input(
-    "📆 Filter by Visit Date",
-    value=(min_date, max_date),
-    min_value=min_date,
-    max_value=max_date
-)
-start_date, end_date = date_range if isinstance(date_range, tuple) else (min_date, max_date)
-
-# === StageCode Filter ===
 stage_options = sorted(df['StageCode'].dropna().unique().tolist())
 selected_stage = st.sidebar.selectbox("🧮 Filter by StageCode", ["All"] + stage_options)
 
@@ -76,10 +73,11 @@ if selected_district != "All":
 else:
     filtered_df = filtered_df[filtered_df['District'].isin(district_options)]
 
-filtered_df = filtered_df[
-    (filtered_df['Visit_Date_Time'].dt.date >= start_date) &
-    (filtered_df['Visit_Date_Time'].dt.date <= end_date)
-]
+if has_valid_dates:
+    filtered_df = filtered_df[
+        (filtered_df['Visit_Date_Time'].dt.date >= start_date) &
+        (filtered_df['Visit_Date_Time'].dt.date <= end_date)
+    ]
 
 if selected_stage != "All":
     filtered_df = filtered_df[filtered_df['StageCode'] == selected_stage]
@@ -106,34 +104,22 @@ with col3:
 with col4:
     st.metric("💸 Total Amount", f"{filtered_df['Amount'].sum():,.0f}")
 
-# === DISTRICT-WISE BAR CHARTS ===
+# === DISTRICT-WISE CHARTS ===
 if selected_district == "All":
     st.subheader("📊 District-wise Overview")
 
     df_district_amount = filtered_df.groupby('District')['Amount'].sum().reset_index()
-    fig_amount = px.bar(
-        df_district_amount,
-        x='District',
-        y='Amount',
-        title="💸 Total Amount by District",
-        text_auto=True
-    )
+    fig_amount = px.bar(df_district_amount, x='District', y='Amount', title="💸 Total Amount by District", text_auto=True)
     fig_amount.update_layout(showlegend=False, xaxis_tickangle=-45)
     st.plotly_chart(fig_amount, use_container_width=True)
 
     df_mothers = filtered_df.groupby('District')['MotherCNIC'].nunique().reset_index()
     df_mothers.columns = ['District', 'Unique Mothers']
-    fig_mothers = px.bar(
-        df_mothers,
-        x='District',
-        y='Unique Mothers',
-        title="👩‍🍼 Total PLWs by District",
-        text_auto=True
-    )
+    fig_mothers = px.bar(df_mothers, x='District', y='Unique Mothers', title="👩‍🍼 Total PLWs by District", text_auto=True)
     fig_mothers.update_layout(showlegend=False, xaxis_tickangle=-45)
     st.plotly_chart(fig_mothers, use_container_width=True)
 
-# === STAGECODE BAR CHART ===
+# === STAGECODE CHART ===
 st.subheader("🧮 Visits by StageCode")
 stage_chart = (
     filtered_df.groupby('StageCode')
@@ -146,9 +132,8 @@ fig_stage.update_layout(showlegend=False)
 st.plotly_chart(fig_stage, use_container_width=True)
 
 # === VISIT TREND CHART ===
-if 'Visit_Date_Time' in filtered_df.columns:
+if has_valid_dates:
     st.subheader("📈 Visit Trend Over Time")
-
     trend_group = st.radio("Group Trend By", ["Daily", "Monthly", "Yearly"], horizontal=True)
 
     if trend_group == "Monthly":
@@ -196,7 +181,7 @@ if 'DOB' in filtered_df.columns:
 st.subheader("📄 Data Table")
 st.dataframe(filtered_df)
 
-output_file = f"{selected_district.replace(' ', '_') if selected_district != 'All' else 'All_Districts'}_{start_date}_{end_date}.xlsx"
+output_file = f"{selected_district.replace(' ', '_') if selected_district != 'All' else 'All_Districts'}_{date.today()}.xlsx"
 filtered_df.to_excel(output_file, index=False)
 
 with open(output_file, "rb") as file:
@@ -206,4 +191,3 @@ with open(output_file, "rb") as file:
         file_name=output_file,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
