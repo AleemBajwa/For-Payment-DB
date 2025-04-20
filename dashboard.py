@@ -3,7 +3,6 @@ import pandas as pd
 import plotly.express as px
 from datetime import date
 
-# === Load Data (Cached) ===
 @st.cache_data
 def load_data():
     df = pd.read_csv("payment_data.csv")
@@ -22,17 +21,14 @@ def load_data():
 
     return df
 
-# === Load Data ===
 with st.spinner("Loading data..."):
     df = load_data()
 
-# === District Filter Lists ===
 project_districts = [
     "Bahawalnagar", "Bahawalpur", "Bhakkar", "Dera Ghazi Khan", "Khushab",
     "Layyah", "Lodhran", "Mianwali", "Muzaffargarh", "Rahim Yar Khan", "Rajanpur"
 ]
 
-# === Sidebar Filters ===
 st.sidebar.title("📍 Filters")
 show_all = st.sidebar.checkbox("🔓 Show Non-Project Districts", value=False)
 district_options = sorted(df['District'].dropna().unique()) if show_all else sorted([d for d in df['District'].unique() if d in project_districts])
@@ -55,7 +51,6 @@ if has_valid_dates:
 stage_options = sorted(df['StageCode'].dropna().unique().tolist())
 selected_stage = st.sidebar.selectbox("🧮 Filter by StageCode", ["All"] + stage_options)
 
-# === Apply Filters ===
 filtered_df = df.copy()
 if selected_district != "All":
     filtered_df = filtered_df[filtered_df['District'] == selected_district]
@@ -71,14 +66,12 @@ if has_valid_dates:
 if selected_stage != "All":
     filtered_df = filtered_df[filtered_df['StageCode'] == selected_stage]
 
-# === Header ===
 st.markdown("""
     <div style="background-color:#0A5275;padding:15px;border-radius:10px">
     <h2 style="color:white;text-align:center;">📊 District Data Dashboard</h2>
     </div>
     """, unsafe_allow_html=True)
 
-# === Summary Stats ===
 st.subheader("📈 Summary Stats")
 col1, col2, col3 = st.columns(3)
 col4 = st.columns(1)[0]
@@ -92,23 +85,31 @@ with col3:
 with col4:
     st.metric("💸 Total Amount", f"{filtered_df['Amount'].sum():,.0f}")
 
-# === District-Wise Charts (Only for All) ===
+# === DISTRICT-WISE CHARTS ===
 if selected_district == "All":
     with st.spinner("Loading district charts..."):
         st.subheader("📊 District-wise Overview")
 
         df_district_amount = filtered_df.groupby('District')['Amount'].sum().reset_index()
-        fig_amount = px.bar(df_district_amount, x='District', y='Amount', title="💸 Total Amount by District", text_auto=True)
+        fig_amount = px.bar(
+            df_district_amount, x='District', y='Amount',
+            title="💸 Total Amount by District", text_auto=True,
+            color='District', color_discrete_sequence=px.colors.qualitative.Set2
+        )
         fig_amount.update_layout(showlegend=False, xaxis_tickangle=-45)
         st.plotly_chart(fig_amount, use_container_width=True)
 
         df_mothers = filtered_df.groupby('District')['MotherCNIC'].nunique().reset_index()
         df_mothers.columns = ['District', 'Unique Mothers']
-        fig_mothers = px.bar(df_mothers, x='District', y='Unique Mothers', title="👩‍🍼 Total PLWs by District", text_auto=True)
+        fig_mothers = px.bar(
+            df_mothers, x='District', y='Unique Mothers',
+            title="👩‍🍼 Total PLWs by District", text_auto=True,
+            color='District', color_discrete_sequence=px.colors.qualitative.Pastel
+        )
         fig_mothers.update_layout(showlegend=False, xaxis_tickangle=-45)
         st.plotly_chart(fig_mothers, use_container_width=True)
 
-# === StageCode Chart ===
+# === STAGECODE CHART ===
 with st.spinner("Rendering StageCode chart..."):
     st.subheader("🧮 Visits by StageCode")
     stage_chart = (
@@ -117,11 +118,15 @@ with st.spinner("Rendering StageCode chart..."):
         .reset_index(name="Visit Count")
         .sort_values("Visit Count", ascending=False)
     )
-    fig_stage = px.bar(stage_chart, x='StageCode', y='Visit Count', title="Visits by StageCode", text_auto=True)
+    fig_stage = px.bar(
+        stage_chart, x='StageCode', y='Visit Count',
+        title="Visits by StageCode", text_auto=True,
+        color='StageCode', color_discrete_sequence=px.colors.qualitative.Set3
+    )
     fig_stage.update_layout(showlegend=False)
     st.plotly_chart(fig_stage, use_container_width=True)
 
-# === Visit Trend Chart ===
+# === VISIT TREND CHART ===
 if has_valid_dates:
     with st.spinner("Loading visit trends..."):
         st.subheader("📈 Visit Trend Over Time")
@@ -135,10 +140,14 @@ if has_valid_dates:
             filtered_df['Trend'] = filtered_df['Visit_Date_Time'].dt.date
 
         trend_df = filtered_df.groupby('Trend').size().reset_index(name="Visits").sort_values('Trend')
-        fig_trend = px.line(trend_df, x='Trend', y='Visits', title=f"Visits Over Time ({trend_group})", markers=True)
+        fig_trend = px.line(
+            trend_df, x='Trend', y='Visits',
+            title=f"Visits Over Time ({trend_group})",
+            markers=True
+        )
         st.plotly_chart(fig_trend, use_container_width=True)
 
-# === Age Distribution Chart ===
+# === AGE DISTRIBUTION CHART ===
 if 'DOB' in filtered_df.columns:
     with st.spinner("Calculating age distribution..."):
         st.subheader("👶 Age Group Distribution")
@@ -165,11 +174,15 @@ if 'DOB' in filtered_df.columns:
             ["0–17", "18–25", "26–35", "36–40", "41–49", "50+"], fill_value=0).reset_index()
         age_group_counts.columns = ['Age Group', 'Count']
 
-        fig_age = px.bar(age_group_counts, x='Age Group', y='Count', title="Age Group Distribution", text_auto=True)
+        fig_age = px.bar(
+            age_group_counts, x='Age Group', y='Count',
+            title="Age Group Distribution", text_auto=True,
+            color='Age Group', color_discrete_sequence=px.colors.qualitative.Bold
+        )
         fig_age.update_layout(showlegend=False)
         st.plotly_chart(fig_age, use_container_width=True)
 
-# === Data Table & Download: Only if district is selected ===
+# === DATA TABLE & DOWNLOAD (only for selected district) ===
 if selected_district != "All":
     st.subheader("📄 Data Table")
     st.dataframe(filtered_df.head(100))
