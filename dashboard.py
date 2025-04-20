@@ -2,16 +2,16 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# === Load data from Google Sheets (CSV format) ===
+# === Load data from Google Sheets ===
 csv_url = "https://docs.google.com/spreadsheets/d/1Y3EITLOqTCHQkkaOTB7BJb2qIxBaA-mWqLlNs7JXtdA/export?format=csv"
 df = pd.read_csv(csv_url)
 
-# === CLEANING BLOCK ===
-df.dropna(how='all', inplace=True)
-df.columns = df.columns.str.strip()
-df = df[df['Sr'].astype(str) != 'Sr']
+# === CLEANING SECTION ===
+df.dropna(how='all', inplace=True)                          # Drop fully blank rows
+df.columns = df.columns.str.strip()                         # Trim column headers
+df = df[df['Sr'].astype(str).str.lower() != 'sr']           # Remove repeated headers in data
 
-# Clean all object columns
+# Strip whitespace in all string columns
 for col in df.select_dtypes(include='object').columns:
     df[col] = df[col].str.strip()
 
@@ -19,20 +19,20 @@ for col in df.select_dtypes(include='object').columns:
 df['District'] = df['District'].str.title()
 df['Tehsil'] = df['Tehsil'].str.title()
 
-# === Clean and convert Amount column ===
+# Clean and convert Amount to numeric (handles commas, spaces)
 df['Amount'] = (
     df['Amount']
     .astype(str)
     .str.replace(",", "", regex=False)
     .str.replace(" ", "")
-    .str.extract(r'(\d+\.?\d*)')[0]  # Keep only numeric-like patterns
+    .str.extract(r'(\d+\.?\d*)')[0]
 )
 df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce')
 
-# Drop rows missing core fields
+# Drop rows missing core fields (optional)
 df = df[df['District'].notna() & df['Tehsil'].notna()]
 
-# === DASHBOARD TITLE ===
+# === DASHBOARD HEADER ===
 st.markdown("""
     <div style="background-color:#0A5275;padding:15px;border-radius:10px">
     <h2 style="color:white;text-align:center;">📊 District Data Dashboard</h2>
@@ -86,7 +86,7 @@ with col2:
         fig2 = px.pie(df_amount, values='Amount', names='Tehsil', title='Total Amount by Tehsil')
         st.plotly_chart(fig2, use_container_width=True)
 
-# === TABLE + DOWNLOAD ===
+# === DATA TABLE & DOWNLOAD ===
 with st.expander("📄 View Data Table"):
     st.dataframe(filtered_df)
 
