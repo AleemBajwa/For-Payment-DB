@@ -47,9 +47,15 @@ district_options = sorted(df['District'].dropna().unique()) if show_all else sor
 selected_district = st.sidebar.selectbox("Select District", ["All"] + district_options)
 
 # ✅ Fix: Ensure no NaT is passed to date_input
+# === SAFE DATE FILTER HANDLING ===
 valid_dates = df['Visit_Date_Time'].dropna()
-min_date = valid_dates.min()
-max_date = valid_dates.max()
+if valid_dates.empty:
+    from datetime import date
+    min_date = date(2023, 1, 1)
+    max_date = date(2025, 12, 31)
+else:
+    min_date = valid_dates.min().date()
+    max_date = valid_dates.max().date()
 
 date_range = st.sidebar.date_input(
     "📆 Filter by Visit Date",
@@ -57,8 +63,7 @@ date_range = st.sidebar.date_input(
     min_value=min_date,
     max_value=max_date
 )
-
-start_date, end_date = (date_range if isinstance(date_range, tuple) else (min_date, max_date))
+start_date, end_date = date_range if isinstance(date_range, tuple) else (min_date, max_date)
 
 stage_options = sorted(df['StageCode'].dropna().unique().tolist())
 selected_stage = st.sidebar.selectbox("🧮 Filter by StageCode", ["All"] + stage_options)
