@@ -3,15 +3,13 @@ import pandas as pd
 import plotly.express as px
 import os
 
-# === Load the Excel file ===
+# === Load Excel File (make sure actual header row is used) ===
 data_file = "For_Payment_DB.xlsx"
-df = pd.read_excel(data_file, header=1)  # Skip first row; use second row as header
+df = pd.read_excel(data_file, header=0)  # Assumes first row is the correct header
 
-# === Clean-up and drop fully empty rows ===
+# === Clean headers ===
 df.dropna(how='all', inplace=True)
-
-# === Fix column name spacing if needed ===
-df.columns = df.columns.str.strip()
+df.columns = df.columns.str.strip()  # Remove extra spaces from headers
 
 # === Dashboard Title ===
 st.markdown("""
@@ -20,42 +18,37 @@ st.markdown("""
     </div>
     """, unsafe_allow_html=True)
 
-# === Summary Stats (Global) ===
+# === Summary Stats ===
 st.subheader("📈 Overall Summary")
 
 col1, col2, col3 = st.columns(3)
 col4, col5 = st.columns(2)
 
 with col1:
-    unique_cnic = df['MotherCNIC'].nunique(dropna=True)
-    st.metric("👩‍🦰 Unique Mothers (CNIC)", unique_cnic)
+    st.metric("👩‍🦰 Unique Mothers (CNIC)", df['MotherCNIC'].nunique(dropna=True))
 
 with col2:
-    total_visits = len(df)
-    st.metric("📋 Total Visits", total_visits)
+    st.metric("📋 Total Visits", len(df))
 
 with col3:
-    unique_districts = df['District'].nunique(dropna=True)
-    st.metric("🏙️ Unique Districts", unique_districts)
+    st.metric("🏙️ Unique Districts", df['District'].nunique(dropna=True))
 
 with col4:
-    unique_tehsils = df['Tehsil'].nunique(dropna=True)
-    st.metric("🏞️ Unique Tehsils", unique_tehsils)
+    st.metric("🏞️ Unique Tehsils", df['Tehsil'].nunique(dropna=True))
 
 with col5:
     total_amount = df['Amount'].sum(skipna=True) if 'Amount' in df.columns else 0
     st.metric("💸 Total Amount", f"{total_amount:,.0f}")
 
-# === Sidebar: District Filter ===
-st.sidebar.title("📍 Filters")
+# === Sidebar Filter ===
+st.sidebar.title("📍 Filter by District")
 districts = df['District'].dropna().unique()
 selected_district = st.sidebar.selectbox("Select a District", sorted(districts))
 
 # === Filtered Data ===
 filtered_df = df[df['District'] == selected_district]
 
-# === District Stats ===
-st.subheader(f"📍 Statistics for `{selected_district}`")
+st.subheader(f"📍 Data for `{selected_district}`")
 st.write(f"**Total Records:** {len(filtered_df)}")
 
 # === Charts ===
@@ -74,7 +67,7 @@ with col2:
         st.plotly_chart(fig2, use_container_width=True)
 
 # === Expandable Table ===
-with st.expander("📄 View Full Table"):
+with st.expander("📄 View Data Table"):
     st.dataframe(filtered_df)
 
 # === Download Button ===
@@ -83,7 +76,7 @@ filtered_df.to_excel(output_file, index=False)
 
 with open(output_file, "rb") as file:
     st.download_button(
-        label="📥 Download Excel File",
+        label="📥 Download District Data",
         data=file,
         file_name=output_file,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
