@@ -106,8 +106,7 @@ if selected_district == "All":
         x='District',
         y='Amount',
         title="💸 Total Amount by District",
-        text_auto=True,
-        color_discrete_sequence=px.colors.qualitative.Set2
+        text_auto=True
     )
     fig_amount.update_layout(
         showlegend=False,
@@ -126,8 +125,7 @@ if selected_district == "All":
         x='District',
         y='Unique Mothers',
         title="👩‍🍼 Total PLWs by District",
-        text_auto=True,
-        color_discrete_sequence=px.colors.qualitative.Set3
+        text_auto=True
     )
     fig_mothers.update_layout(
         showlegend=False,
@@ -138,7 +136,7 @@ if selected_district == "All":
     )
     st.plotly_chart(fig_mothers, use_container_width=True)
 
-# === STAGECODE CHART ===
+# === STAGECODE BAR CHART ===
 st.subheader("🧮 Visits by StageCode")
 stage_chart = (
     filtered_df.groupby('StageCode')
@@ -151,9 +149,7 @@ fig_stage = px.bar(
     x='StageCode',
     y='Visit Count',
     title="Visits by StageCode",
-    text_auto=True,
-    color='StageCode',
-    color_discrete_sequence=px.colors.qualitative.Set1
+    text_auto=True
 )
 fig_stage.update_layout(showlegend=False)
 st.plotly_chart(fig_stage, use_container_width=True)
@@ -221,10 +217,7 @@ if 'DOB' in filtered_df.columns:
         x='Age Group',
         y='Count',
         title="Age Group Distribution",
-        labels={'Count': 'Number of Records'},
-        color='Age Group',
-        text_auto=True,
-        color_discrete_sequence=px.colors.qualitative.Pastel
+        text_auto=True
     )
     fig_age_group.update_layout(showlegend=False)
     st.plotly_chart(fig_age_group, use_container_width=True)
