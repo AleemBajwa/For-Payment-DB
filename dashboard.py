@@ -7,29 +7,31 @@ csv_url = "https://docs.google.com/spreadsheets/d/1Y3EITLOqTCHQkkaOTB7BJb2qIxBaA
 df = pd.read_csv(csv_url)
 
 # === CLEANING SECTION ===
-df.dropna(how='all', inplace=True)                          # Drop fully blank rows
-df.columns = df.columns.str.strip()                         # Trim column headers
-df = df[df['Sr'].astype(str).str.lower() != 'sr']           # Remove repeated headers in data
+df.dropna(how='all', inplace=True)                          # Drop blank rows
+df.columns = df.columns.str.strip()                         # Clean header names
+df = df[df['Sr'].astype(str).str.lower() != 'sr']           # Drop repeated headers inside data
 
-# Strip whitespace in all string columns
+# Strip whitespace in all text columns
 for col in df.select_dtypes(include='object').columns:
     df[col] = df[col].str.strip()
 
-# Normalize key fields
+# Normalize key location fields
 df['District'] = df['District'].str.title()
 df['Tehsil'] = df['Tehsil'].str.title()
 
-# Clean and convert Amount to numeric (handles commas, spaces)
+# === Clean and strictly validate Amount column ===
 df['Amount'] = (
     df['Amount']
     .astype(str)
     .str.replace(",", "", regex=False)
     .str.replace(" ", "")
-    .str.extract(r'(\d+\.?\d*)')[0]
 )
-df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce')
 
-# Drop rows missing core fields (optional)
+# Only keep rows where Amount is a clean integer (strict match)
+df = df[df['Amount'].str.fullmatch(r"\d+")]
+df['Amount'] = pd.to_numeric(df['Amount'])
+
+# === Drop any rows missing required data ===
 df = df[df['District'].notna() & df['Tehsil'].notna()]
 
 # === DASHBOARD HEADER ===
@@ -86,7 +88,7 @@ with col2:
         fig2 = px.pie(df_amount, values='Amount', names='Tehsil', title='Total Amount by Tehsil')
         st.plotly_chart(fig2, use_container_width=True)
 
-# === DATA TABLE & DOWNLOAD ===
+# === DATA TABLE + DOWNLOAD ===
 with st.expander("📄 View Data Table"):
     st.dataframe(filtered_df)
 
